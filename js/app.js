@@ -22,6 +22,7 @@ import StatsView from './view/StatsView.js';
 import ControlsView from './view/ControlsView.js';
 import ChartView from './view/ChartView.js';
 import PercolationController from './controller/PercolationController.js';
+import PercolationViewModel from './view/PercolationViewModel.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   const canvasEl = document.getElementById('grid-canvas');
@@ -35,10 +36,11 @@ document.addEventListener('DOMContentLoaded', () => {
     controls: new ControlsView(),
     chart: new ChartView(chartEl),
   };
-  const controller = new PercolationController(model, view);
+  const viewModel = new PercolationViewModel(model);
+  const controller = new PercolationController(model, view, viewModel);
 
   const chartBtn = document.getElementById('chart-build');
   if (chartBtn) chartBtn.addEventListener('click', () => controller.buildChart());
 
-  window.percolationLab = { model, controller };
+  window.percolationLab = { model, viewModel, controller };
 });

@@ -6,8 +6,9 @@ import ChartView from '../view/ChartView.js';
 
 
 class PercolationController {
-  constructor(model, view) {
+  constructor(model, view, viewModel = null) {
     this.model = model;
+    this.viewModel = viewModel;
     this.canvasView = view.canvas;
     this.statsView = view.stats;
     this.controlsView = view.controls;
@@ -35,9 +36,10 @@ class PercolationController {
 
     c.onPChange((p) => {
       c.setPValue(p);
-      this.model.setP(p);
+      this.viewModel ? this.viewModel.setProbability(p) : this.model.setP(p);
     });
-    c.onSizeChange((L) => this.model.setL(L));
+    c.onSizeChange((L) => this.viewModel ? this.viewModel.setSize(L) : this.model.setL(L));
+    c.onLatticeChange((type) => this.viewModel ? this.viewModel.selectLattice(type) : this.model.setLattice(type));
     c.onRegenerate(() => this.model.regenerate());
 
     c.onToggleSpanning(() => {
@@ -57,12 +59,12 @@ class PercolationController {
     const state = this.model.snapshot();
     if (!state.grid) return;
 
-    // Показываем ВСЕ занятые ячейки по очереди, а не только один маленький кластер.
-    // Сначала обходятся компоненты, а внутри них — соседние клетки: рост выглядит связным.
+    // Анимируем каждую ячейку решётки: занятые, пустые и сквозные.
+    // Сначала занятые обходятся связными компонентами, затем пустые.
     const L = state.L;
-    const seen = new Uint8Array(L * L);
+    const seen = new Uint8Array(state.grid.cells.length);
     const order = [];
-    for (let seed = 0; seed < L * L; seed++) {
+    for (let seed = 0; seed < state.grid.cells.length; seed++) {
       if (state.grid.cells[seed] !== 1 || seen[seed]) continue;
       const queue = [seed];
       seen[seed] = 1;
@@ -77,15 +79,10 @@ class PercolationController {
         }
       }
     }
-
-    if (!order.length) {
-      const btn = document.getElementById("animate");
-      if (btn) {
-        btn.textContent = "Нет занятых ячеек — увеличь p";
-        setTimeout(() => { btn.textContent = "▶ Показать рост кластера"; }, 1800);
-      }
-      return;
+    for (let idx = 0; idx < state.grid.cells.length; idx++) {
+      if (state.grid.cells[idx] === 0) order.push(idx);
     }
+
     this.animating = true;
     this.controlsView.disableAnimate(true);
     const btn = document.getElementById("animate");
@@ -108,6 +105,7 @@ class PercolationController {
       const url = new URL(location.href);
       url.searchParams.set("p", p.toFixed(2));
       url.searchParams.set("L", L);
+      url.searchParams.set("lattice", this.model.lattice);
       history.replaceState(null, "", url);
     } catch (e) { /* file:// — URL не обновляем */ }
   }
@@ -116,6 +114,10 @@ class PercolationController {
     const url = new URL(location.href);
     if (url.searchParams.has("p")) {
       this.model.p = parseFloat(url.searchParams.get("p"));
+    }
+    if (url.searchParams.has("lattice")) {
+      const type = url.searchParams.get("lattice");
+      if (["square", "triangular", "honeycomb", "cubic", "bcc", "fcc"].includes(type)) this.model.lattice = type;
     }
     if (url.searchParams.has("L")) {
       this.model.L = Math.max(2, Math.min(30, Math.trunc(Number(url.searchParams.get("L")) || 30)));
@@ -133,12 +135,11 @@ class PercolationController {
     if (btn) btn.disabled = true;
 
     setTimeout(() => {
-      const data = this.model.computeCurve(30, 20);
-      const pc = this.model.estimatePc(30);
-      this.chartView.render(data, pc);
+      const data = this.viewModel ? this.viewModel.buildChart(200, 20) : this.model.computeCurve(200, 20, this.model.L);
+      this.chartView.render(data, this.model.lattice === 'square' ? 0.592746 : null);
 
       const label = document.getElementById("chart-pc");
-      if (label) label.textContent = pc.toFixed(3);
+      if (label) label.textContent = this.model.lattice === 'square' ? `L=${this.model.L}; p_c(2D) ≈ 0.592746 (справочно)` : `L=${this.model.L}; p_c зависит от решётки`;
 
       if (btn) btn.disabled = false;
     }, 30);

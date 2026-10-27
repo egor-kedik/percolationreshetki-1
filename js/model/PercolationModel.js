@@ -5,9 +5,10 @@ import Statistics from './Statistics.js';
 
 
 class PercolationModel {
-  constructor({ L = 30, p = 0.5 } = {}) {
+  constructor({ L = 30, p = 0.5, lattice = 'square' } = {}) {
     this.L = Math.max(2, Math.min(30, Math.trunc(Number(L) || 30)));
     this.p = p;
+    this.lattice = lattice;
     this.grid = null;
     this.cluster = null;
     this.stats = null;
@@ -31,12 +32,15 @@ class PercolationModel {
     return {
       L: this.L,
       p: this.p,
+      lattice: this.lattice,
       pc: this.PC,
       grid: this.grid,
       cluster: this.cluster,
       stats: this.stats ? this.stats.toObject() : null,
     };
   }
+
+  setLattice(type) { this.lattice = type; this.regenerate(); }
 
   setP(p) {
     this.p = Math.max(0, Math.min(1, p));
@@ -49,7 +53,7 @@ class PercolationModel {
   }
 
   regenerate() {
-    this.grid = new Grid(this.L, this.p);
+    this.grid = new Grid(this.L, this.p, this.lattice);
     this.cluster = new Cluster(this.grid);
     this.stats = new Statistics(this.grid, this.cluster);
     this._emit();
@@ -81,38 +85,42 @@ class PercolationModel {
     return order;
   }
 
-  // --- Кривая P∞(p) ---
-  computeCurve(trials = 30, steps = 20) {
+  // Конечномерная вероятность вертикального пересечения R_L(p), не параметр порядка P∞.
+  // Интервал Уилсона показывает биномиальную статистическую неопределённость.
+  computeCurve(trials = 200, steps = 20, L = this.L) {
     const points = [];
+    const nTrials = Math.max(1, Math.trunc(trials));
+    const size = Math.max(2, Math.min(30, Math.trunc(L)));
     for (let i = 0; i <= steps; i++) {
       const p = i / steps;
-      let spanning = 0;
-      for (let t = 0; t < trials; t++) {
-        const grid = new Grid(30, p);
+      let crossings = 0;
+      for (let t = 0; t < nTrials; t++) {
+        const grid = new Grid(size, p, this.lattice);
         const cluster = new Cluster(grid);
-        if (cluster.spanningId >= 0) spanning++;
+        // Только верх-низ: не смешиваем два направления в одном событии.
+        let vertical = false;
+        for (let id = 0; id < cluster.numClusters; id++) {
+          if (cluster.touchesTop[id] && cluster.touchesBottom[id]) { vertical = true; break; }
+        }
+        if (vertical) crossings++;
       }
-      points.push({ p, pinf: spanning / trials });
+      const estimate = crossings / nTrials;
+      const z = 1.96;
+      const denom = 1 + z * z / nTrials;
+      const center = (estimate + z * z / (2 * nTrials)) / denom;
+      const half = z * Math.sqrt((estimate * (1 - estimate) / nTrials) + z * z / (4 * nTrials * nTrials)) / denom;
+      points.push({ p, value: estimate, low: Math.max(0, center - half), high: Math.min(1, center + half), successes: crossings, trials: nTrials });
     }
     return points;
   }
 
-  // --- Автопоиск p_c методом бисекции ---
-  estimatePc(trials = 30) {
-    let lo = 0, hi = 1;
-    for (let iter = 0; iter < 15; iter++) {
-      const mid = (lo + hi) / 2;
-      let spanning = 0;
-      for (let t = 0; t < trials; t++) {
-        const grid = new Grid(30, mid);
-        const cluster = new Cluster(grid);
-        if (cluster.spanningId >= 0) spanning++;
-      }
-      if (spanning / trials > 0.5) hi = mid;
-      else lo = mid;
-    }
-    return (lo + hi) / 2;
+  // Это p, при котором оценённая вероятность вертикального пересечения близка к 0.5
+  // для конечного L, а не истинный критический порог бесконечной решётки.
+  estimateFiniteSizeP50(trials = 200, L = this.L, steps = 100) {
+    const points = this.computeCurve(trials, steps, L);
+    return points.reduce((best, point) => Math.abs(point.value - 0.5) < Math.abs(best.value - 0.5) ? point : best, points[0]).p;
   }
+
 }
 
 

@@ -30,9 +30,10 @@
         Вероятность p: <b id="p-value">0.50</b>
 <input id="p-slider" max="1" min="0" step="0.01" type="range" value="0.5"/>
 </label>
+<label>Тип решётки:<select id="lattice-select"><option value="square">Квадратная (2D)</option><option value="triangular">Треугольная (2D)</option><option value="honeycomb">Соты / гексагональная (2D)</option><option value="cubic">Кубическая (3D-проекция)</option><option value="bcc">ОЦК — объёмно-центрированная (3D-проекция)</option><option value="fcc">ГЦК — гранецентрированная (3D-проекция)</option></select></label>
 <label>Размер L:<input id="size-select" type="text" value="30" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="size-help size-error" maxlength="12"/><small id="size-help" class="field-help">Введи целое число от 2 до 30</small><small id="size-error" class="field-error" role="alert" aria-live="polite"></small></label>
 <button class="btn" id="regenerate" type="button">🎲 Новая</button>
-<button class="btn btn-accent" id="animate" type="button">▶ Показать рост кластера</button>
+<button class="btn btn-accent" id="animate" type="button">▶ Пошаговый обход компонент</button>
 <button class="btn btn-outline" id="toggle-spanning" type="button">Только сквозной</button>
 <button class="btn btn-outline" id="export-png" type="button">📸 PNG</button>
 </div>
@@ -44,7 +45,7 @@
     <span><i class="legend-dot occupied"></i> Занятая ячейка / кластер</span>
     <span><i class="legend-dot spanning"></i> Сквозной кластер</span>
   </div>
-  <div class="animation-help"><span class="help-icon">▶</span><div><strong>Что делает анимация?</strong><p>Нажми «Показать рост кластера»: ячейки будут подсвечиваться по очереди — так видно, как вещество проходит через соседние занятые ячейки. Красный цвет отмечает сквозной кластер, если он существует.</p></div></div>
+  <div class="animation-help"><span class="help-icon">▶</span><div><strong>Что делает анимация?</strong><p>Анимация показывает пошаговый обход уже сформированных занятых компонент, а не физический рост или движение вещества. Пустые узлы тоже подсвечиваются; красным отмечается сквозная компонента, если она существует.</p></div></div>
 </div>
 <div class="stats">
 <div><span>Кластеров:</span> <b id="stat-clusters">—</b></div>
@@ -53,15 +54,31 @@
 <div><span>Занято:</span> <b id="stat-occupied">—</b></div>
 </div>
 </section>
+
+<section class="lattice-gallery" aria-labelledby="lattice-gallery-title">
+  <div class="lattice-gallery-head">
+    <div><span class="eyebrow">СТРУКТУРА РЕШЁТКИ</span><h2 id="lattice-gallery-title">Типы решёток</h2></div>
+    <p>Выбери структуру, чтобы сравнить число соседей и форму связей.</p>
+  </div>
+  <div class="lattice-cards">
+    <button class="lattice-card selected" type="button" data-lattice="square"><span class="lattice-icon square-icon">┼<br>┼</span><strong>Квадратная</strong><span>Регулярная сетка, 4 ближайших соседа.</span><em>4 соседа</em></button>
+    <button class="lattice-card" type="button" data-lattice="triangular"><span class="lattice-icon triangle-icon">△<br>▽</span><strong>Треугольная</strong><span>Треугольные ячейки и диагональные связи.</span><em>6 соседей</em></button>
+    <button class="lattice-card" type="button" data-lattice="honeycomb"><span class="lattice-icon honey-icon">⬡ ⬡<br> ⬡ ⬡</span><strong>Соты</strong><span>Гексагональная структура с тремя связями на узел.</span><em>3 соседа</em></button>
+    <button class="lattice-card" type="button" data-lattice="cubic"><span class="lattice-icon">◇</span><strong>Кубическая</strong><span>Простая трёхмерная кубическая решётка.</span><em>6 соседей</em></button>
+    <button class="lattice-card" type="button" data-lattice="bcc"><span class="lattice-icon">⬡</span><strong>ОЦК</strong><span>Куб с дополнительным узлом в центре объёма.</span><em>8 соседей</em></button>
+    <button class="lattice-card" type="button" data-lattice="fcc"><span class="lattice-icon">✳</span><strong>ГЦК</strong><span>Узлы в вершинах и центрах граней куба.</span><em>12 соседей</em></button>
+  </div>
+</section>
+
 <section class="chart-section">
 <div class="chart-head">
-<h2>Фазовый переход · P∞(p)</h2>
+<h2>Вероятность пересечения · Rₗ(p)</h2>
 <div class="chart-controls">
 <span>p_c ≈ <b id="chart-pc">—</b></span>
 <button class="btn btn-accent" id="chart-build" type="button">Построить</button>
 </div>
 </div>
-<p class="lead">Доля реализаций со сквозным кластером при разных p.</p>
+<p class="lead">Оценка вероятности вертикального пересечения конечной решётки размера L при разных p. Заштрихованная область — 95% доверительный интервал Уилсона; это не параметр порядка P∞.</p>
 <div class="chart-wrap">
 <canvas height="350" id="chart-canvas" width="700"></canvas>
 </div>
@@ -78,5 +95,17 @@
 
 
 
-<script src="js/app.js" type="module"></script></body>
+<script src="js/app.js" type="module"></script><script>
+document.querySelectorAll('.lattice-card').forEach(card => card.addEventListener('click', () => {
+ const select = document.getElementById('lattice-select');
+ if (!select) return;
+ select.value = card.dataset.lattice;
+ select.dispatchEvent(new Event('change', { bubbles: true }));
+ document.querySelectorAll('.lattice-card').forEach(c => c.classList.toggle('selected', c === card));
+}));
+document.getElementById('lattice-select')?.addEventListener('change', event => {
+ document.querySelectorAll('.lattice-card').forEach(c => c.classList.toggle('selected', c.dataset.lattice === event.target.value));
+});
+</script>
+</body>
 </html>

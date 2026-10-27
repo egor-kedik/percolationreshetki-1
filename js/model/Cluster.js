@@ -4,7 +4,7 @@ import Grid from './Grid.js';
 class Cluster {
   constructor(grid) {
     this.grid = grid;
-    this.labels = new Int32Array(grid.L * grid.L).fill(-1);
+    this.labels = new Int32Array(grid.cells.length).fill(-1);
     this.sizes = [];
     this.touchesTop = [];
     this.touchesBottom = [];
@@ -20,7 +20,7 @@ class Cluster {
     const L = grid.L;
     const stack = []; // обход в глубину (DFS)
 
-    for (let start = 0; start < L * L; start++) {
+    for (let start = 0; start < grid.cells.length; start++) {
       if (grid.cells[start] === 0 || this.labels[start] !== -1) continue;
 
       stack.length = 0;

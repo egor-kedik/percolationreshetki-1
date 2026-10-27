@@ -57,7 +57,7 @@ class ChartView {
     ctx.save();
     ctx.translate(15, pad.top + plotH / 2);
     ctx.rotate(-Math.PI / 2);
-    ctx.fillText("P∞", 0, 0);
+    ctx.fillText("R_L(p)", 0, 0);
     ctx.restore();
 
     // линия p_c
@@ -73,14 +73,26 @@ class ChartView {
       ctx.setLineDash([]);
     }
 
-    // кривая
+    // 95% доверительный интервал Уилсона для вероятности пересечения.
     if (data && data.length > 1) {
+      ctx.fillStyle = "rgba(88,166,255,0.16)";
+      ctx.beginPath();
+      data.forEach((pt, i) => {
+        const x = pad.left + plotW * pt.p;
+        const y = pad.top + plotH * (1 - pt.high);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      for (let i = data.length - 1; i >= 0; i--) {
+        const pt = data[i], x = pad.left + plotW * pt.p;
+        ctx.lineTo(x, pad.top + plotH * (1 - pt.low));
+      }
+      ctx.closePath(); ctx.fill();
       ctx.strokeStyle = "#58a6ff";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       data.forEach((pt, i) => {
         const x = pad.left + plotW * pt.p;
-        const y = pad.top + plotH * (1 - pt.pinf);
+        const y = pad.top + plotH * (1 - pt.value);
         if (i === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -89,7 +101,7 @@ class ChartView {
       ctx.fillStyle = "#58a6ff";
       data.forEach((pt) => {
         const x = pad.left + plotW * pt.p;
-        const y = pad.top + plotH * (1 - pt.pinf);
+        const y = pad.top + plotH * (1 - pt.value);
         ctx.beginPath();
         ctx.arc(x, y, 3, 0, Math.PI * 2);
         ctx.fill();

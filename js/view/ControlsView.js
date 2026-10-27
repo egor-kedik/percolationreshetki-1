@@ -3,6 +3,7 @@ class ControlsView {
     this.pSlider = document.getElementById("p-slider");
     this.pValue = document.getElementById("p-value");
     this.sizeInput = document.getElementById("size-select");
+    this.latticeSelect = document.getElementById("lattice-select");
     this.regenBtn = document.getElementById("regenerate");
     this.toggleBtn = document.getElementById("toggle-spanning");
     this.animBtn = document.getElementById("animate");
@@ -67,7 +68,8 @@ class ControlsView {
     if (this.toggleBtn) this.toggleBtn.textContent = only ? "Показать все кластеры" : "Только сквозной";
   }
 
-  syncInputs({ p, L }) {
+  syncInputs({ p, L, lattice }) {
+    if (this.latticeSelect && lattice) this.latticeSelect.value = lattice;
     if (this.pSlider) this.pSlider.value = p;
     if (this.sizeInput) this.sizeInput.value = String(Math.max(2, Math.min(30, Math.trunc(Number(L) || 30))));
     this.setPValue(p);
@@ -76,6 +78,7 @@ class ControlsView {
   onPChange(fn) {
     if (this.pSlider) this.pSlider.addEventListener("input", () => fn(parseFloat(this.pSlider.value)));
   }
+  onLatticeChange(fn) { if (this.latticeSelect) this.latticeSelect.addEventListener("change", () => fn(this.latticeSelect.value)); }
   onSizeChange(fn) {
     if (!this.sizeInput) return;
     this.sizeInput.addEventListener("change", () => {
